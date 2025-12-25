@@ -96,7 +96,7 @@ def find_vacant_row(worksheet, start_row=2, end_row=100):
             
             # Check if row is vacant (all cells are empty or None)
             if not row_data or not any(cell.strip() if cell else False for cell in row_data):
-                print(f"Row {row_num} is vacant")
+                
                 return row_num
         except Exception as e:
             # If row doesn't exist or error occurs, treat as vacant
@@ -154,28 +154,49 @@ def add_expense(worksheet, date_str, name, expense_type, category, note, amount)
         return False
 
 
-def add_expense_to_vacant_row(spreadsheet_id, date_str, name, expense_type, category, note, amount, month=None, year=None):
+def add_expense_to_vacant_row(spreadsheet_id, expense_data, month=None, year=None):
     """
     Convenient function to add an expense to a vacant row.
     Handles getting/creating the worksheet and finding/updating a vacant row.
     
     Args:
         spreadsheet_id: The ID of the Google Spreadsheet
-        date_str: Date string (e.g., "2024-12-19")
-        name: Name/description of the expense
-        expense_type: Type of expense
-        category: Category of expense
-        note: Additional notes
-        amount: Amount as string (e.g., "100.00")
+        expense_data: List/array in format [Date, Name, Type, Category, Note, Amount]
+                     Example: ["2023-08-18", "Toy Purchase", "Expense", "Shopping", "", 1000]
         month: Month name (optional, defaults to current month)
         year: Year as integer (optional, defaults to current year)
         
     Returns:
         True if successful, False otherwise
     """
+    # Validate expense_data format
+    if not isinstance(expense_data, (list, tuple)):
+        print("Error: expense_data must be a list or tuple")
+        return False
+    
+    if len(expense_data) != 6:
+        print(f"Error: expense_data must have 6 elements (got {len(expense_data)})")
+        print(f"Expected format: [Date, Name, Type, Category, Note, Amount]")
+        return False
+    
     # Get or create the worksheet
     worksheet = get_or_create_monthly_sheet(spreadsheet_id, month, year)
     
-    # Find vacant row and add expense
-    return add_expense(worksheet, date_str, name, expense_type, category, note, amount)
+    # Find vacant row
+    vacant_row = find_vacant_row(worksheet)
+    if not vacant_row:
+        print("No vacant rows available to add expense")
+        return False
+    
+    # Replace the date with today's date (YYYY-MM-DD format)
+    current_date = date.today().strftime('%Y-%m-%d')
+    
+    # Convert all values to strings (especially amount which might be a number)
+    formatted_data = [str(value) if value is not None else "" for value in expense_data]
+    
+    # Replace the first element (date) with current date
+    formatted_data[0] = current_date
+    
+    # Update the row
+    return update_row(worksheet, vacant_row, formatted_data)
 

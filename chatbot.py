@@ -1,4 +1,6 @@
 import os
+import json
+import ast
 from openai import OpenAI
 from dotenv import load_dotenv
 from sheets_handler import add_expense_to_vacant_row
@@ -9,6 +11,7 @@ load_dotenv()
 # Initialize OpenAI client
 openai_client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
 
+SHEET_ID = "1NO-1fymXvJefUZqMN6-stqJtyMCGujwssMBfIkOiTIw"
 
 def chat_with_bot(user_message: str) -> str:
     """
@@ -47,10 +50,19 @@ def run_chatbot():
         return
     
     conversation_history = [
-        {"role": "system", "content": "Whenever the user gives a financial transaction, respond ONLY in this JSON array format: "
-        "[\"Date\", \"Name\", \"Type\", \"Category\", \"Note\", \"Amount\"]. "
-        "Date must be YYYY-MM-DD, Type is either 'Income' or 'Expense', Amount is a number, "
-        "and other fields as described. DO NOT add any extra text."}
+        {"role": "system", "content": (
+            "You are a helpful assistant that helps the user track their finances. "
+            "Whenever the user gives a financial transaction, respond ONLY in this JSON array format: "
+            "[\"Date\", \"Name\", \"Type\", \"Category\", \"Note\", \"Amount\"]. "
+            "Date must be YYYY-MM-DD, Type is either 'Income' or 'Expense', Amount is a number, "
+            "and other fields as described. DO NOT add any extra text. "
+            "If no mention of the date, use the current date. "
+            "If no mention of the type, use 'Expense'. "
+            "If no mention of the category, use 'Uncategorized'. "
+            "If no mention of the note, use 'No note'. "
+            "If no mention of the amount, use '0'."
+            "Category are only one of the following: 'Food', 'Transportation', 'Housing', 'Utilities', 'Entertainment', 'Other'."
+        )}
     ]
     
     while True:
@@ -74,7 +86,16 @@ def run_chatbot():
             )
             
             assistant_message = response.choices[0].message.content
-            print(f"Assistant: {assistant_message}\n")
+            print(f"Assistant: {assistant_message} Transaction has been recorded! \n")
+            
+            # Parse the string response into a list
+            try:
+                # Try to parse as Python literal (handles both strings and numbers)
+                expense_data = ast.literal_eval(assistant_message.strip())
+                add_expense_to_vacant_row(SHEET_ID, expense_data)
+            except (ValueError, SyntaxError) as e:
+                print(f"Error parsing expense data: {str(e)}")
+                print(f"Received: {assistant_message}")
             
             # Add assistant response to history
             conversation_history.append({"role": "assistant", "content": assistant_message})

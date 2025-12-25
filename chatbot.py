@@ -1,6 +1,7 @@
 import os
 from openai import OpenAI
 from dotenv import load_dotenv
+from sheets_handler import add_expense_to_vacant_row
 
 # Load environment variables
 load_dotenv()
@@ -23,7 +24,10 @@ def chat_with_bot(user_message: str) -> str:
         response = openai_client.chat.completions.create(
             model="gpt-3.5-turbo",
             messages=[
-                {"role": "system", "content": "You are a helpful assistant."},
+                {"role": "system", "content": "Whenever the user gives a financial transaction, respond ONLY in this JSON array format: "
+        "[\"Date\", \"Name\", \"Type\", \"Category\", \"Note\", \"Amount\"]. "
+        "Date must be YYYY-MM-DD, Type is either 'Income' or 'Expense', Amount is a number, "
+        "and other fields as described. DO NOT add any extra text."},
                 {"role": "user", "content": user_message}
             ]
         )
@@ -43,7 +47,10 @@ def run_chatbot():
         return
     
     conversation_history = [
-        {"role": "system", "content": "You are a helpful assistant."}
+        {"role": "system", "content": "Whenever the user gives a financial transaction, respond ONLY in this JSON array format: "
+        "[\"Date\", \"Name\", \"Type\", \"Category\", \"Note\", \"Amount\"]. "
+        "Date must be YYYY-MM-DD, Type is either 'Income' or 'Expense', Amount is a number, "
+        "and other fields as described. DO NOT add any extra text."}
     ]
     
     while True:

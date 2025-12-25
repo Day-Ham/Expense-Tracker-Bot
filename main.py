@@ -1,77 +1,65 @@
 import os
-from openai import OpenAI
+import gspread
+from google.oauth2.service_account import Credentials
 from dotenv import load_dotenv
-
+from chatbot import run_chatbot
+from datetime import date
 # Load environment variables
 load_dotenv()
 
-# Initialize OpenAI client
-client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
+# Google Sheets configuration
+SCOPES = [
+    "https://www.googleapis.com/auth/spreadsheets",
+]
 
-def chat_with_bot(user_message: str) -> str:
-    """
-    Send a message to the OpenAI chatbot and get a response.
+# Initialize Google Sheets client
+creds = Credentials.from_service_account_file(
+    "credentials.json",
+    scopes=SCOPES
+)
+gs_client = gspread.authorize(creds)
+
+# Open the spreadsheet
+sheet_id = "1NO-1fymXvJefUZqMN6-stqJtyMCGujwssMBfIkOiTIw"
+finance_sheet = gs_client.open_by_key(sheet_id)
+
+# Get current month and year
+current_month = date.today().strftime('%B')  # Full month name (e.g., "January")
+current_year = date.today().year  # Year as integer (e.g., 2024)
+
+# Get all worksheets
+all_worksheets = finance_sheet.worksheets()
+
+doesSheetExist = False
+# Loop through all sheets and check if title matches month and year
+for worksheet in all_worksheets:
+    sheet_title = worksheet.title
+    # Check if title matches current month and year
+    # (You can customize the matching logic here)
+    if current_month in sheet_title and str(current_year) in sheet_title:
+        print(f"Found matching sheet: {sheet_title}")
+        doesSheetExist = True
+        # Do something with the matching sheet
+    else:
+        print(f"Sheet '{sheet_title}' does not match {current_month} {current_year}")
+if  doesSheetExist == False:
+    print(f"Sheet does not exist for {current_month} {current_year}")
+    # Create a new sheet with the current month and year
+    new_sheet = finance_sheet.add_worksheet(title=f"{current_month} {current_year}", rows="100", cols="26")
+    print(f"Created new sheet: {new_sheet.title}")
     
-    Args:
-        user_message: The user's message/query
-        
-    Returns:
-        The assistant's response
-    """
-    try:
-        response = client.chat.completions.create(
-            model="gpt-3.5-turbo",
-            messages=[
-                {"role": "system", "content": "You are a helpful assistant."},
-                {"role": "user", "content": user_message}
-            ]
-        )
-        return response.choices[0].message.content
-    except Exception as e:
-        return f"Error: {str(e)}"
+    # Add headers to the first row
+    headers = ["Date", "Name", "Type", "Category", "Note", "Amount"]
+    new_sheet.update("A1:F1", [headers])
+    print("Added headers to the new sheet")
+
+
 
 def main():
-    """Main function to run the chatbot."""
-    print("OpenAI Chatbot - Type 'quit' or 'exit' to end the conversation\n")
-    
-    # Check if API key is set
-    if not os.getenv("OPENAI_API_KEY"):
-        print("Error: OPENAI_API_KEY not found in environment variables.")
-        print("Please create a .env file with your OpenAI API key.")
-        return
-    
-    conversation_history = [
-        {"role": "system", "content": "You are a helpful assistant."}
-    ]
-    
-    while True:
-        user_input = input("You: ").strip()
-        
-        if user_input.lower() in ['quit', 'exit', 'q']:
-            print("Goodbye!")
-            break
-        
-        if not user_input:
-            continue
-        
-        # Add user message to history
-        conversation_history.append({"role": "user", "content": user_input})
-        
-        try:
-            # Get response from OpenAI
-            response = client.chat.completions.create(
-                model="gpt-3.5-turbo",
-                messages=conversation_history
-            )
-            
-            assistant_message = response.choices[0].message.content
-            print(f"Assistant: {assistant_message}\n")
-            
-            # Add assistant response to history
-            conversation_history.append({"role": "assistant", "content": assistant_message})
-            
-        except Exception as e:
-            print(f"Error: {str(e)}\n")
+    """Main entry point."""
+    # Example: Run the chatbot
+    #run_chatbot()
+
 
 if __name__ == "__main__":
     main()
